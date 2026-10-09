@@ -1,26 +1,48 @@
 import { test } from '@playwright/test';
+
 import { SignInPage } from '../../src/ui/pages/auth/SignInPage';
 import { HomePage } from '../../src/ui/pages/HomePage';
 
-let signInPage;
-let homePage;
-let user;
+import { generateNewUserData } from '../../src/common/testData/generateNewUserData';
+import { signUpUser } from '../../src/ui/actions/auth/signUpUser';
 
-test.beforeEach(async ({ page }) => {
-  signInPage = new SignInPage(page);
-  homePage = new HomePage(page);
+test('Successful `Sign in` flow test', async ({ page }) => {
+  const user = generateNewUserData();
 
-  user = {
-    email: 'test_new_user@gmail.com',
-    password: 'newpass123!',
-  };
-});
+  // Use a lowercase email and a simple test password.
+  user.email = user.email.toLowerCase();
+  user.password = `TestPass${Date.now()}!`;
 
-test('Successful `Sign in` flow test', async () => {
-  await signInPage.open();
-  await signInPage.fillEmailField(user.email);
-  await signInPage.fillPasswordField(user.password);
-  await signInPage.clickSignInButton();
+  const signInPage = new SignInPage(page);
+  const homePage = new HomePage(page);
 
-  await homePage.assertYourFeedTabIsVisible();
+  await test.step('Register a new user', async () => {
+    await signUpUser(page, user);
+  });
+
+  await test.step('Clear the authentication state', async () => {
+    await page.evaluate(() => {
+      localStorage.clear();
+      sessionStorage.clear();
+    });
+
+    await page.context().clearCookies();
+  });
+
+  await test.step('Open Sign In page', async () => {
+    await signInPage.open();
+  });
+
+  await test.step('Fill login credentials', async () => {
+    await signInPage.fillEmailField(user.email);
+    await signInPage.fillPasswordField(user.password);
+  });
+
+  await test.step('Submit the login form', async () => {
+    await signInPage.clickSignInButton();
+  });
+
+  await test.step('Verify successful sign in', async () => {
+    await homePage.assertYourFeedTabIsVisible();
+  });
 });
